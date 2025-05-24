@@ -65,9 +65,9 @@ export async function POST(request: NextRequest) {
 
     console.log('Making Claude API call...');
 
-    // Call Claude API with the same model that works in our tests
+    // Call Claude API with Claude 3.5 Sonnet (latest model)
     const message = await anthropic.messages.create({
-      model: 'claude-3-haiku-20240307', // Using the same model as our working tests
+      model: 'claude-3-5-sonnet-20241022', // Updated to Claude 3.5 Sonnet
       max_tokens: 2000,
       temperature: 0.7,
       messages: [
