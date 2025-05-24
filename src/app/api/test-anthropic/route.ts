@@ -11,18 +11,31 @@ export async function GET(request: NextRequest) {
       }, { status: 500 });
     }
 
-    // Initialize Anthropic client
-    const anthropic = new Anthropic({
-      apiKey: process.env.ANTHROPIC_API_KEY,
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    
+    console.log('API Key details:', {
+      hasKey: !!apiKey,
+      length: apiKey?.length,
+      prefix: apiKey?.slice(0, 10),
+      suffix: apiKey?.slice(-4)
     });
 
-    console.log('Testing Anthropic API with key preview:', 
-      process.env.ANTHROPIC_API_KEY.slice(0, 10) + '...' + process.env.ANTHROPIC_API_KEY.slice(-4)
-    );
+    // Try different initialization approaches
+    const anthropic = new Anthropic({
+      apiKey: apiKey,
+      // Explicitly set default headers
+      defaultHeaders: {
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json'
+      }
+    });
 
-    // Make a simple test call
+    console.log('Making Anthropic API call...');
+
+    // Make a simple test call with explicit headers
     const message = await anthropic.messages.create({
-      model: 'claude-3-haiku-20240307', // Using Haiku for faster/cheaper testing
+      model: 'claude-3-haiku-20240307',
       max_tokens: 50,
       messages: [
         {
@@ -30,6 +43,13 @@ export async function GET(request: NextRequest) {
           content: 'Say "Hello, API test successful!" and nothing else.',
         },
       ],
+    }, {
+      // Override headers at request level
+      headers: {
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json'
+      }
     });
 
     const responseText = message.content[0]?.type === 'text' 
@@ -50,17 +70,18 @@ export async function GET(request: NextRequest) {
     
     let errorDetails = 'Unknown error';
     let statusCode = 500;
+    let fullError = null;
 
     if (error instanceof Error) {
       errorDetails = error.message;
-      console.error('Full error details:', {
+      fullError = {
         name: error.name,
         message: error.message,
-        stack: error.stack
-      });
+        stack: error.stack?.split('\n').slice(0, 5) // Limit stack trace
+      };
 
       // Check for specific Anthropic API errors
-      if (error.message.includes('authentication') || error.message.includes('API key')) {
+      if (error.message.includes('authentication') || error.message.includes('API key') || error.message.includes('x-api-key')) {
         statusCode = 401;
       } else if (error.message.includes('rate limit')) {
         statusCode = 429;
@@ -73,6 +94,7 @@ export async function GET(request: NextRequest) {
       success: false,
       error: 'Anthropic API test failed',
       details: errorDetails,
+      fullError: fullError,
       timestamp: new Date().toISOString()
     }, { status: statusCode });
   }
