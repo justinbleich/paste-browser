@@ -25,9 +25,12 @@ export async function POST(request: NextRequest) {
     const body: ClaudeAnalysisRequest = await request.json();
     const { url, prompt } = body;
 
+    console.log('Analyzing URL:', url);
+
     // Validate URL
     const urlValidation = validateUrl(url);
     if (!urlValidation.isValid) {
+      console.error('URL validation failed:', urlValidation.errors);
       const response: ApiResponse = {
         success: false,
         error: urlValidation.errors.join(', '),
@@ -60,9 +63,11 @@ export async function POST(request: NextRequest) {
       }
     `;
 
-    // Call Claude API
+    console.log('Making Claude API call...');
+
+    // Call Claude API with the same model that works in our tests
     const message = await anthropic.messages.create({
-      model: 'claude-3-sonnet-20240229',
+      model: 'claude-3-haiku-20240307', // Using the same model as our working tests
       max_tokens: 2000,
       temperature: 0.7,
       messages: [
@@ -73,10 +78,14 @@ export async function POST(request: NextRequest) {
       ],
     });
 
+    console.log('Claude API call successful');
+
     // Extract response text
     const responseText = message.content[0]?.type === 'text' 
       ? message.content[0].text 
       : '';
+
+    console.log('Response text length:', responseText.length);
 
     // Try to parse JSON response
     let analysisData: ClaudeAnalysisResponse;
@@ -85,7 +94,9 @@ export async function POST(request: NextRequest) {
       const jsonMatch = responseText.match(/\{[\s\S]*\}/);
       const jsonString = jsonMatch ? jsonMatch[0] : responseText;
       analysisData = JSON.parse(jsonString);
+      console.log('Successfully parsed JSON response');
     } catch (parseError) {
+      console.log('JSON parsing failed, using fallback response');
       // Fallback if JSON parsing fails
       analysisData = {
         analysis: responseText || 'Analysis completed',
@@ -140,6 +151,7 @@ export async function POST(request: NextRequest) {
       message: 'Analysis completed successfully',
     };
 
+    console.log('Returning successful response');
     return NextResponse.json(response, { status: 200 });
 
   } catch (error) {
@@ -152,10 +164,10 @@ export async function POST(request: NextRequest) {
       console.error('Error details:', {
         message: error.message,
         name: error.name,
-        stack: error.stack
+        stack: error.stack?.split('\n').slice(0, 5) // Limit stack trace
       });
       
-      if (error.message.includes('API key') || error.message.includes('authentication')) {
+      if (error.message.includes('API key') || error.message.includes('authentication') || error.message.includes('x-api-key')) {
         errorMessage = 'Invalid or missing Anthropic API key. Please check your environment variables.';
         statusCode = 401;
       } else if (error.message.includes('rate limit')) {
@@ -164,6 +176,9 @@ export async function POST(request: NextRequest) {
       } else if (error.message.includes('network') || error.message.includes('timeout')) {
         errorMessage = 'Network error connecting to Anthropic API. Please try again.';
         statusCode = 503;
+      } else if (error.message.includes('model')) {
+        errorMessage = 'Model error. Please try again with a different request.';
+        statusCode = 400;
       } else {
         errorMessage = `API Error: ${error.message}`;
       }
