@@ -185,13 +185,44 @@ const GenerativeMCPApp = () => {
           }
         }
       }
+    },
+    'data.local': {
+      name: 'Data Analysis',
+      icon: <Database size={12} />,
+      type: 'analytics',
+      description: 'Local data analysis and visualization tools',
+      tools: ['import-data', 'analyze-dataset', 'create-visualization', 'export-results', 'run-query'],
+      predictiveActions: [
+        { action: 'import-data', confidence: 0.9, context: 'Load your dataset' },
+        { action: 'analyze-dataset', confidence: 0.8, context: 'Explore data patterns' },
+        { action: 'create-visualization', confidence: 0.7, context: 'Generate charts and graphs' }
+      ],
+      toolSchemas: {
+        'import-data': {
+          name: 'import-data',
+          description: 'Import data from various sources',
+          parameters: {
+            source: { type: 'string', enum: ['CSV', 'JSON', 'Excel', 'Database'] },
+            file_path: { type: 'string', required: true }
+          }
+        },
+        'analyze-dataset': {
+          name: 'analyze-dataset',
+          description: 'Perform statistical analysis on dataset',
+          parameters: {
+            dataset_id: { type: 'string', required: true },
+            analysis_type: { type: 'string', enum: ['Summary', 'Correlation', 'Regression', 'Clustering'] }
+          }
+        }
+      }
     }
   };
 
   const popularMCPs: PopularMCP[] = [
-    { url: 'github.com', title: 'GitHub' },
-    { url: 'notion.so', title: 'Notion' },
-    { url: 'slack.com', title: 'Slack' }
+    { url: 'github.com', title: 'GitHub — Code & Collaboration' },
+    { url: 'notion.so', title: 'Notion — Knowledge Base' },
+    { url: 'slack.com', title: 'Slack — Team Communication' },
+    { url: 'data.local', title: 'Data Analysis — Local Tools' }
   ];
 
   // AI Analysis function using our API
@@ -475,6 +506,109 @@ const GenerativeMCPApp = () => {
     </div>
   );
 
+  // Tool interface renderer
+  const renderToolInterface = (toolName: string) => {
+    const result = toolResults[toolName];
+    const schema = currentServer?.toolSchemas?.[toolName];
+    
+    // Generic form interface for any tool
+    return (
+      <div className="space-y-6">
+        {/* Tool Description */}
+        {schema?.description && (
+          <div className="border border-gray-300 p-4">
+            <h3 className="font-mono text-sm uppercase tracking-wider text-black mb-2">
+              Description
+            </h3>
+            <p className="text-sm text-gray-700">{schema.description}</p>
+          </div>
+        )}
+
+        {/* Tool Parameters */}
+        {schema?.parameters && (
+          <div className="border border-gray-300 p-4">
+            <h3 className="font-mono text-sm uppercase tracking-wider text-black mb-4">
+              Parameters
+            </h3>
+            <div className="space-y-4">
+              {Object.entries(schema.parameters).map(([paramName, paramConfig]: [string, any]) => (
+                <div key={paramName}>
+                  <label className="block font-mono text-xs uppercase tracking-wider text-gray-600 mb-2">
+                    {paramName.replace(/_/g, ' ')} {paramConfig.required && '*'}
+                  </label>
+                  
+                  {paramConfig.enum ? (
+                    <select 
+                      className="w-full p-3 border border-gray-300 focus:border-black font-mono text-sm"
+                      onChange={(e) => handleFormChange(toolName, paramName, e.target.value)}
+                    >
+                      <option value="">Select {paramName}</option>
+                      {paramConfig.enum.map((option: string) => (
+                        <option key={option} value={option}>{option}</option>
+                      ))}
+                    </select>
+                  ) : paramConfig.type === 'boolean' ? (
+                    <label className="flex items-center space-x-2">
+                      <input 
+                        type="checkbox" 
+                        className="w-4 h-4"
+                        onChange={(e) => handleFormChange(toolName, paramName, e.target.checked)}
+                      />
+                      <span className="text-sm text-gray-700">Enable {paramName.replace(/_/g, ' ')}</span>
+                    </label>
+                  ) : paramConfig.type === 'text' ? (
+                    <textarea 
+                      className="w-full p-3 border border-gray-300 focus:border-black font-mono text-sm" 
+                      rows={3} 
+                      placeholder={`Enter ${paramName.replace(/_/g, ' ')}...`}
+                      onChange={(e) => handleFormChange(toolName, paramName, e.target.value)}
+                    />
+                  ) : (
+                    <input 
+                      type="text" 
+                      className="w-full p-3 border border-gray-300 focus:border-black font-mono text-sm" 
+                      placeholder={`Enter ${paramName.replace(/_/g, ' ')}...`}
+                      onChange={(e) => handleFormChange(toolName, paramName, e.target.value)}
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Tool Result */}
+        {result && (
+          <div className="border border-gray-300 p-4">
+            <h3 className="font-mono text-sm uppercase tracking-wider text-black mb-2">
+              Result
+            </h3>
+            <pre className="text-sm whitespace-pre-wrap text-gray-700 bg-gray-50 p-3 rounded">
+              {result}
+            </pre>
+          </div>
+        )}
+
+        {/* Default interface if no schema */}
+        {!schema && (
+          <div className="border border-gray-300 p-4">
+            <h3 className="font-mono text-sm uppercase tracking-wider text-black mb-4">
+              {toolName.replace(/-/g, ' ')} Tool
+            </h3>
+            <p className="text-sm text-gray-700 mb-4">
+              This tool is ready to execute. Click the Execute Tool button above to run it.
+            </p>
+            {result && (
+              <div className="mt-4 p-3 bg-gray-50 rounded">
+                <pre className="text-sm whitespace-pre-wrap text-gray-700">{result}</pre>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-white">
       {/* Tab Bar */}
@@ -695,17 +829,7 @@ const GenerativeMCPApp = () => {
                   </div>
                 </div>
                 
-                {/* Tool Result */}
-                {toolResults[selectedTool] && (
-                  <div className="border border-gray-300 p-4 mb-6">
-                    <h3 className="font-mono text-sm uppercase tracking-wider text-black mb-2">
-                      Result
-                    </h3>
-                    <pre className="text-sm whitespace-pre-wrap text-gray-700">
-                      {toolResults[selectedTool]}
-                    </pre>
-                  </div>
-                )}
+                {renderToolInterface(selectedTool)}
               </div>
             )}
           </div>
