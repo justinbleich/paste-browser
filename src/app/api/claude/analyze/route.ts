@@ -4,13 +4,23 @@ import type { ApiResponse, ClaudeAnalysisRequest, ClaudeAnalysisResponse } from 
 import { validateUrl } from '@/utils/validation';
 import { ERROR_MESSAGES } from '@/utils/constants';
 
-// Initialize Anthropic client
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY!,
-});
-
 export async function POST(request: NextRequest) {
   try {
+    // Check API key first
+    if (!process.env.ANTHROPIC_API_KEY) {
+      console.error('ANTHROPIC_API_KEY not found in environment variables');
+      const response: ApiResponse = {
+        success: false,
+        error: 'Anthropic API key not configured. Please add ANTHROPIC_API_KEY to environment variables.',
+      };
+      return NextResponse.json(response, { status: 500 });
+    }
+
+    // Initialize Anthropic client
+    const anthropic = new Anthropic({
+      apiKey: process.env.ANTHROPIC_API_KEY,
+    });
+
     // Parse request body
     const body: ClaudeAnalysisRequest = await request.json();
     const { url, prompt } = body;
@@ -23,15 +33,6 @@ export async function POST(request: NextRequest) {
         error: urlValidation.errors.join(', '),
       };
       return NextResponse.json(response, { status: 400 });
-    }
-
-    // Check API key
-    if (!process.env.ANTHROPIC_API_KEY) {
-      const response: ApiResponse = {
-        success: false,
-        error: 'Anthropic API key not configured',
-      };
-      return NextResponse.json(response, { status: 500 });
     }
 
     // Create analysis prompt
@@ -148,14 +149,23 @@ export async function POST(request: NextRequest) {
     let statusCode = 500;
 
     if (error instanceof Error) {
-      if (error.message.includes('API key')) {
-        errorMessage = ERROR_MESSAGES.UNAUTHORIZED;
+      console.error('Error details:', {
+        message: error.message,
+        name: error.name,
+        stack: error.stack
+      });
+      
+      if (error.message.includes('API key') || error.message.includes('authentication')) {
+        errorMessage = 'Invalid or missing Anthropic API key. Please check your environment variables.';
         statusCode = 401;
       } else if (error.message.includes('rate limit')) {
         errorMessage = ERROR_MESSAGES.RATE_LIMITED;
         statusCode = 429;
+      } else if (error.message.includes('network') || error.message.includes('timeout')) {
+        errorMessage = 'Network error connecting to Anthropic API. Please try again.';
+        statusCode = 503;
       } else {
-        errorMessage = error.message;
+        errorMessage = `API Error: ${error.message}`;
       }
     }
 
