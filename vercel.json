@@ -3,9 +3,6 @@
   "outputDirectory": ".next",
   "installCommand": "npm install",
   "framework": "nextjs",
-  "env": {
-    "ANTHROPIC_API_KEY": "@anthropic_api_key"
-  },
   "functions": {
     "src/app/api/**/*.ts": {
       "runtime": "nodejs18.x"
