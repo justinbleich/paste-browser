@@ -38,29 +38,46 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(response, { status: 400 });
     }
 
-    // Create analysis prompt
+    // Create analysis prompt - using the sophisticated approach from original
     const analysisPrompt = prompt || `
-      Analyze this URL and provide:
-      1. A brief analysis of what this website/page is about
-      2. 3-5 actionable suggestions for tools or actions a user might want to perform
-      3. A list of potential tools/actions with descriptions
+Analyze this URL and determine what specific MCP tools it should provide: ${url}
 
-      URL: ${url}
+Consider:
+1. Domain analysis (github.com, notion.so, slack.com, etc.)
+2. API endpoints and capabilities
+3. Common authentication methods
+4. Typical user workflows
+5. What specific tools would be most useful for this service
 
-      Please respond in JSON format with the following structure:
-      {
-        "analysis": "Brief description of the website/page",
-        "suggestions": ["suggestion1", "suggestion2", "suggestion3"],
-        "tools": [
-          {
-            "id": "unique-id",
-            "name": "Tool Name",
-            "description": "What this tool does",
-            "category": "category-name",
-            "action": "action-type"
-          }
-        ]
-      }
+For the tools array, provide SPECIFIC tool names that users would actually want to use, not generic categories.
+
+Examples:
+- For github.com: ["search_repositories", "create_issue", "get_file_content", "list_pull_requests", "create_branch"]
+- For notion.so: ["search_pages", "create_page", "update_database", "query_database", "get_page_content"]
+- For slack.com: ["send_message", "create_channel", "list_channels", "get_user_info", "upload_file"]
+
+Respond with a JSON object containing:
+{
+  "analysis": "Brief description of the service and its capabilities",
+  "serviceName": "Service Name",
+  "serviceType": "code|knowledge|communication|analytics|other",
+  "description": "Brief description of the service",
+  "authMethod": "oauth|api_key|basic|none",
+  "authUrl": "OAuth URL if applicable",
+  "suggestions": ["suggestion1", "suggestion2", "suggestion3"],
+  "tools": [
+    {
+      "id": "specific_tool_1",
+      "name": "Human Readable Tool Name",
+      "description": "What this tool does",
+      "category": "primary|secondary",
+      "action": "action-type"
+    }
+  ],
+  "capabilities": ["capability1", "capability2"],
+  "icon": "Square|Circle|Triangle|Code|Database|MessageSquare",
+  "baseUrl": "API base URL if different from input"
+}
     `;
 
     console.log('Making Claude API call...');

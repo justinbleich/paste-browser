@@ -267,41 +267,79 @@ const GenerativeMCPApp = () => {
         return;
       }
 
-      // Use AI to analyze the URL and generate server configuration
+      // Phase 1: Use AI to analyze the URL and get basic service info
+      console.log('Phase 1: Analyzing URL with AI...');
       const analysis = await analyzeUrlWithAI(serverUrl);
-      if (analysis) {
-        const aiGeneratedServer: MCPServer = {
-          name: analysis.analysis || 'AI Generated Server',
-          icon: <Database size={12} />,
-          type: 'ai-generated',
-          description: analysis.analysis || 'AI-generated MCP server',
-          tools: analysis.tools?.map(tool => tool.id) || [],
-          predictiveActions: analysis.suggestions?.map((suggestion, index) => ({
-            action: `action-${index}`,
-            confidence: 0.8,
-            context: suggestion,
-            enhancedContext: suggestion
-          })) || [],
-          toolSchemas: {},
-          aiGenerated: true,
-          isReal: false,
-          baseUrl: serverUrl
-        };
-
-        // Generate tool schemas from AI response
-        if (analysis.tools) {
-          analysis.tools.forEach(tool => {
-            aiGeneratedServer.toolSchemas[tool.id] = {
-              name: tool.id,
-              description: tool.description,
-              displayName: tool.name
-            };
-          });
-        }
-
-        setCurrentServer(aiGeneratedServer);
-        setPredictiveActions(aiGeneratedServer.predictiveActions);
+      if (!analysis) {
+        throw new Error('Failed to analyze URL');
       }
+
+      // Phase 2: Generate detailed tool interfaces based on analysis
+      console.log('Phase 2: Generating tool interfaces...');
+      let toolInterfaces: any = {};
+      let enhancedPredictiveActions: PredictiveAction[] = [];
+      
+      try {
+        const interfaceData = await claudeApi.generateInterface(analysis);
+        if (interfaceData?.tools) {
+          toolInterfaces = interfaceData.tools;
+        }
+        if (interfaceData?.predictiveActions) {
+          enhancedPredictiveActions = interfaceData.predictiveActions.map((action: any) => ({
+            action: action.action,
+            confidence: action.confidence || 0.8,
+            context: action.context || action.action,
+            enhancedContext: action.enhancedContext || action.context
+          }));
+        }
+      } catch (interfaceError) {
+        console.warn('Failed to generate tool interfaces, using basic tools:', interfaceError);
+        // Continue with basic tools from analysis
+      }
+
+      // Create AI-generated server with enhanced tool schemas
+      const aiGeneratedServer: MCPServer = {
+        name: analysis.serviceName || analysis.analysis || 'AI Generated Server',
+        icon: <Database size={12} />,
+        type: 'ai-generated',
+        description: analysis.description || analysis.analysis || 'AI-generated MCP server',
+        tools: analysis.tools?.map(tool => tool.id) || [],
+        predictiveActions: enhancedPredictiveActions.length > 0 
+          ? enhancedPredictiveActions 
+          : analysis.suggestions?.map((suggestion, index) => ({
+              action: `action-${index}`,
+              confidence: 0.8,
+              context: suggestion,
+              enhancedContext: suggestion
+            })) || [],
+        toolSchemas: {},
+        aiGenerated: true,
+        isReal: false,
+        baseUrl: serverUrl,
+        serviceName: analysis.serviceName,
+        serviceType: analysis.serviceType,
+        authFlow: analysis.authMethod !== 'none' ? { steps: [] } : undefined,
+        authUrl: analysis.authUrl
+      };
+
+      // Generate tool schemas from AI response
+      if (analysis.tools) {
+        analysis.tools.forEach(tool => {
+          const enhancedTool = toolInterfaces[tool.id];
+          aiGeneratedServer.toolSchemas[tool.id] = {
+            name: tool.id,
+            description: tool.description,
+            displayName: enhancedTool?.displayName || tool.name,
+            parameters: enhancedTool?.parameters || {},
+            interface: enhancedTool?.interface
+          };
+        });
+      }
+
+      console.log('Generated server with', Object.keys(aiGeneratedServer.toolSchemas).length, 'tool schemas');
+      setCurrentServer(aiGeneratedServer);
+      setPredictiveActions(aiGeneratedServer.predictiveActions);
+
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : ERROR_MESSAGES.UNKNOWN_ERROR;
       setError(errorMessage);
@@ -733,7 +771,7 @@ const GenerativeMCPApp = () => {
                   </h1>
                   <p className="text-gray-600">{currentServer.description}</p>
                 </div>
-                {isAnalyzing && (
+                {isLoading && (
                   <div className="flex items-center space-x-2 text-gray-600">
                     <Loader className="animate-spin" size={16} />
                     <span className="text-sm">Analyzing...</span>
@@ -877,4 +915,4 @@ const GenerativeMCPApp = () => {
   );
 };
 
-export default GenerativeMCPApp; 
+export default GenerativeMCPApp;

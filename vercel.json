@@ -4,6 +4,7 @@
   "installCommand": "npm install",
   "devCommand": "npm run dev",
   "framework": "nextjs",
+  "public": true,
   "headers": [
     {
       "source": "/(.*)",

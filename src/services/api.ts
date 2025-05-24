@@ -148,6 +148,14 @@ class ApiClient {
     );
   }
 
+  async generateInterface(serviceAnalysis: any): Promise<any> {
+    return this.makeRequest<any>(
+      'post',
+      '/api/claude/generate-interface',
+      { serviceAnalysis }
+    );
+  }
+
   // Health check
   async healthCheck(): Promise<{ status: string; timestamp: string }> {
     return this.makeRequest<{ status: string; timestamp: string }>(
@@ -195,6 +203,7 @@ export { ApiClient };
 // Export convenience methods
 export const claudeApi = {
   analyzeUrl: (request: ClaudeAnalysisRequest) => apiClient.analyzeUrl(request),
+  generateInterface: (serviceAnalysis: any) => apiClient.generateInterface(serviceAnalysis),
 };
 
 export const healthApi = {

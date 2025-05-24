@@ -16,6 +16,14 @@ export interface ClaudeAnalysisResponse {
   analysis: string;
   suggestions: string[];
   tools: Tool[];
+  serviceName?: string;
+  serviceType?: string;
+  description?: string;
+  authMethod?: string;
+  authUrl?: string;
+  capabilities?: string[];
+  icon?: string;
+  baseUrl?: string;
 }
 
 // Tool Types
